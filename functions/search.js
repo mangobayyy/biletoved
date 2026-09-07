@@ -264,10 +264,10 @@ async function search(q, token) {
     }
   }
 
-  const fmtDate = (d, stops) => d ? `${ddmmyyyy(d)} (${WD[d.getUTCDay()]})${stops != null ? ` [${stops}]` : ""}` : "";
+  const fmtDate = (d) => d ? `${ddmmyyyy(d)} (${WD[d.getUTCDay()]})` : "";
   const outRows = f.map((r) => {
     const o = {
-      depart: fmtDate(r.depDate, r.stopsOut),
+      depart: fmtDate(r.depDate),
       familyTotal: r.familyTotal,
       currency: q.currency.toUpperCase(),
       airline: r.airlineName,
@@ -276,7 +276,7 @@ async function search(q, token) {
       link: r.link,
     };
     if (!q.oneway) {
-      o.return = fmtDate(r.retDate, r.stopsBack);
+      o.return = fmtDate(r.retDate);
       o.depBack = r.depBack;
       o.layover = `${hm(r.layOut)} - ${hm(r.layBack)}`;
     } else {
