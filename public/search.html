@@ -17,6 +17,17 @@
        border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
   label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
   input,select{font:inherit;padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--fg)}
+  .combo{position:relative;display:block}
+  .combo input{width:100%}
+  .ac{position:absolute;z-index:30;left:0;right:0;top:100%;margin-top:3px;background:#fff;
+      border:1px solid var(--line);border-radius:7px;max-height:280px;overflow:auto;
+      box-shadow:0 8px 24px rgba(0,0,0,.14)}
+  .ac div{padding:7px 10px;cursor:pointer;display:flex;justify-content:space-between;
+          align-items:baseline;gap:10px;font-size:13px;color:var(--fg)}
+  .ac div .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ac div small{color:var(--muted);flex:none}
+  .ac div.sel{background:#eef1ff}
+  .hint{font-size:11px;color:var(--muted);min-height:13px}
   .row-check{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:16px;align-items:center;font-size:13px}
   .row-check label{flex-direction:row;align-items:center;gap:6px;color:var(--fg);font-size:13px}
   .actions{grid-column:1/-1;display:flex;gap:12px;align-items:center}
@@ -47,8 +58,22 @@
   <p class="sub">Скан всего месяца по дням вылета. На каждую дату — самый дешёвый вариант.</p>
 
   <form id="f">
-    <label>Откуда (IATA)<input name="from" value="MOW" maxlength="3" required></label>
-    <label>Куда (IATA)<input name="to" placeholder="DPS" maxlength="3" required></label>
+    <label>Откуда
+      <span class="combo">
+        <input id="fromField" autocomplete="off" placeholder="Город или аэропорт" value="Москва" required>
+        <div class="ac" id="fromAC" hidden></div>
+      </span>
+      <input type="hidden" name="from" id="from" value="MOW">
+      <span class="hint" id="fromHint">Москва &middot; MOW</span>
+    </label>
+    <label>Куда
+      <span class="combo">
+        <input id="toField" autocomplete="off" placeholder="Город или аэропорт" required>
+        <div class="ac" id="toAC" hidden></div>
+      </span>
+      <input type="hidden" name="to" id="to">
+      <span class="hint" id="toHint"></span>
+    </label>
     <label>Месяц<input name="month" type="month" required></label>
     <label>По месяц (необяз.)<input name="through" type="month"></label>
     <label>Ночей<input name="nights" type="number" min="1" max="60" value="14"></label>
@@ -91,9 +116,8 @@
 </div>
 
 <script>
-/* Бэкенд — Cloudflare Pages Function на том же домене (/search).
-   Оставь пустым, если сайт и функция на одном хосте (Cloudflare Pages).
-   Если функция на другом домене — впиши сюда её адрес. */
+/* Бэкенд — Worker на том же домене (/api/search). Оставь пустым.
+   Впиши адрес, только если функция вынесена на другой хост. */
 const WORKER_URL = "";
 
 const f = document.getElementById("f");
@@ -109,8 +133,89 @@ const goBtn = document.getElementById("go");
 })();
 f.oneway.addEventListener("change", () => { f.nights.disabled = f.oneway.checked; });
 
+/* --- city / airport autocomplete (Travelpayouts places2, CORS-open, no token) --- */
+function attachAC(fieldId, hiddenId, acId, hintId) {
+  const field = document.getElementById(fieldId);
+  const hidden = document.getElementById(hiddenId);
+  const ac = document.getElementById(acId);
+  const hint = document.getElementById(hintId);
+  let items = [], sel = -1, timer = null, lastTerm = null;
+
+  const label = (p) => (p.type === "airport" && p.city_name && p.city_name !== p.name)
+    ? `${p.name} (${p.city_name})` : p.name;
+  const sub = (p) => [p.country_name, p.code].filter(Boolean).join(" · ");
+
+  function close() { ac.hidden = true; ac.innerHTML = ""; items = []; sel = -1; }
+  function pick(p) {
+    hidden.value = p.code;
+    field.value = label(p);
+    hint.textContent = `${label(p)} · ${p.code}`;
+    close();
+  }
+  function draw() {
+    if (!items.length) return close();
+    ac.innerHTML = items.map((p, i) =>
+      `<div data-i="${i}" class="${i === sel ? "sel" : ""}"><span class="nm">${esc(label(p))}</span><small>${esc(sub(p))}</small></div>`
+    ).join("");
+    ac.hidden = false;
+  }
+  async function query(term) {
+    try {
+      const u = "https://autocomplete.travelpayouts.com/places2?locale=ru&types[]=city&types[]=airport&term=" + encodeURIComponent(term);
+      const j = await (await fetch(u)).json();
+      return Array.isArray(j) ? j.filter((p) => p && p.code && /^[A-Za-z]{3}$/.test(p.code)) : [];
+    } catch (_) { return []; }
+  }
+
+  field.addEventListener("input", () => {
+    const term = field.value.trim();
+    hidden.value = /^[A-Za-z]{3}$/.test(term) ? term.toUpperCase() : "";
+    hint.textContent = hidden.value ? hidden.value : "";
+    if (term.length < 2) { lastTerm = null; return close(); }
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      if (term === lastTerm) return;
+      lastTerm = term;
+      items = (await query(term)).slice(0, 8); sel = -1; draw();
+    }, 200);
+  });
+  field.addEventListener("keydown", (e) => {
+    if (ac.hidden || !items.length) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); sel = Math.min(sel + 1, items.length - 1); draw(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); sel = Math.max(sel - 1, 0); draw(); }
+    else if (e.key === "Enter" && sel >= 0) { e.preventDefault(); pick(items[sel]); }
+    else if (e.key === "Escape") close();
+  });
+  ac.addEventListener("mousedown", (e) => {
+    const d = e.target.closest("div[data-i]");
+    if (d) { e.preventDefault(); pick(items[+d.dataset.i]); }
+  });
+  field.addEventListener("blur", () => setTimeout(close, 150));
+
+  // called on submit: make sure the hidden IATA field is filled
+  field.resolveCode = async function () {
+    if (hidden.value) return true;
+    const term = field.value.trim();
+    if (/^[A-Za-z]{3}$/.test(term)) { hidden.value = term.toUpperCase(); return true; }
+    if (term.length < 2) return false;
+    const first = (await query(term))[0];
+    if (first) { pick(first); return true; }
+    return false;
+  };
+}
+attachAC("fromField", "from", "fromAC", "fromHint");
+attachAC("toField", "to", "toAC", "toHint");
+
 f.addEventListener("submit", async (e) => {
   e.preventDefault();
+
+  const okFrom = await document.getElementById("fromField").resolveCode();
+  const okTo = await document.getElementById("toField").resolveCode();
+  if (!okFrom || !okTo) {
+    statusEl.innerHTML = '<span class="err">Выбери город вылета и назначения из подсказок</span>';
+    return;
+  }
+
   const fd = new FormData(f);
   const p = new URLSearchParams();
   for (const [k, v] of fd.entries()) if (v !== "" && v != null) p.set(k, v);
