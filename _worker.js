@@ -1,8 +1,8 @@
 // Workers entry for the biletoved site (static assets + one dynamic API route).
-// Cloudflare uses this file as the Worker (either via "main" in wrangler.jsonc
-// or by auto-detecting _worker.js in the assets directory).
+// Referenced as "main" in wrangler.jsonc; static files live in ./public,
+// bound as env.ASSETS.
 //
-//   /api/search   -> flight search function (JSON)
+//   /api/search    -> flight search function (JSON)
 //   everything else -> static files (index.html, search.html, ...)
 
 import { onRequest } from "./functions/search.js";

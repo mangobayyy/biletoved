@@ -1,15 +1,16 @@
 /**
- * Cloudflare Pages Function - flight search for the Biletoved site.
- * Path: /functions/search.js  ->  serves GET /search on the same domain.
+ * Flight search for the Biletoved site. Imported by ../_worker.js, which
+ * routes GET /api/search here; every other path is served as a static asset.
  *
  * Keeps TRAVELPAYOUTS_TOKEN server-side, scans a month of departure days,
  * filters / scores / tags the results and returns JSON the page renders.
  *
- * Deploy: connect this repo in Cloudflare Pages, add env var
- * TRAVELPAYOUTS_TOKEN (Settings -> Environment variables). No wrangler needed.
+ * Deploy: Cloudflare Workers Build from this repo (wrangler.jsonc). The
+ * TRAVELPAYOUTS_TOKEN runtime secret is set from the build command
+ * (`wrangler deploy && wrangler secret put TRAVELPAYOUTS_TOKEN`).
  *
- * GET /search?from=MOW&to=DPS&month=2026-11&nights=21&adults=2&children=1&infants=1
- *            &oneway=0&currency=usd&maxStops=1&maxLayoverH=5&top=20&all=0&through=
+ * GET /api/search?from=MOW&to=DPS&month=2026-11&nights=21&adults=2&children=1
+ *     &infants=1&oneway=0&currency=rub&maxStops=1&maxLayoverH=5&top=20&all=0
  */
 
 const API = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
@@ -270,7 +271,6 @@ async function search(q, token) {
     const o = {
       depart: fmtDate(r.depDate),
       familyTotal: r.familyTotal,
-      currency: q.currency.toUpperCase(),
       airline: r.airlineName,
       depOut: r.depOut,
       totalH: hmRu(r.totalMin),
