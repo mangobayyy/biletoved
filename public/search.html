@@ -122,7 +122,7 @@ f.addEventListener("submit", async (e) => {
   statusEl.textContent = "Идёт поиск… (скан месяца, 5–15 сек)";
   const t0 = Date.now();
   try {
-    const r = await fetch(WORKER_URL.replace(/\/+$/, "") + "/search?" + p.toString());
+    const r = await fetch(WORKER_URL.replace(/\/+$/, "") + "/api/search?" + p.toString());
     const j = await r.json();
     if (!r.ok || j.error) throw new Error(j.error || ("HTTP " + r.status));
     render(j);
