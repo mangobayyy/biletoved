@@ -1,0 +1,6 @@
+.git
+.wrangler
+functions
+web
+wrangler.jsonc
+_worker.js
