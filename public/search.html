@@ -10,11 +10,13 @@
   *{box-sizing:border-box}
   body{margin:0;background:#fff;color:var(--fg);
        font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-  .wrap{max-width:1100px;margin:0 auto;padding:18px}
-  h1{font-size:18px;margin:0 0 4px}
-  p.sub{color:var(--muted);margin:0 0 18px}
-  form{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;
-       border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+  .wrap{max-width:960px;margin:0 auto;padding:26px 18px 64px;text-align:center}
+  .wrap>p:first-child{text-align:left}
+  h1{font-size:19px;margin:0 0 4px}
+  p.sub{color:var(--muted);margin:0 0 20px}
+  form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;
+       max-width:740px;margin:0 auto 18px;text-align:left;
+       border:1px solid var(--line);border-radius:10px;padding:18px}
   label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
   input,select{font:inherit;padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--fg)}
   .combo{position:relative;display:block}
@@ -28,26 +30,43 @@
   .ac div small{color:var(--muted);flex:none}
   .ac div.sel{background:#eef1ff}
   .hint{font-size:11px;color:var(--muted);min-height:13px}
-  .row-check{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:16px;align-items:center;font-size:13px}
+  .row-check{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center;font-size:13px}
   .row-check label{flex-direction:row;align-items:center;gap:6px;color:var(--fg);font-size:13px}
-  .actions{grid-column:1/-1;display:flex;gap:12px;align-items:center}
+  .actions{grid-column:1/-1;display:flex;gap:12px;align-items:center;justify-content:center}
   button{font:inherit;font-weight:700;padding:9px 20px;border:0;border-radius:8px;background:#111;color:#fff;cursor:pointer}
   button:disabled{opacity:.5;cursor:default}
   details{grid-column:1/-1}
-  summary{cursor:pointer;color:var(--accent);font-size:13px}
+  summary{cursor:pointer;color:var(--accent);font-size:13px;text-align:center}
   .adv{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:10px}
   #status{font-size:13px;color:var(--muted);min-height:18px}
   #meta{font-size:12px;color:var(--muted);margin:10px 0 6px}
-  /* results table: white / black zebra, monospace, matches the file report */
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  /* results: split-flap departure board */
   #out{overflow-x:auto}
-  table{border-collapse:collapse;font:13px/1.6 "Cascadia Code",Consolas,"Courier New",monospace}
-  td{padding:3px 12px;white-space:nowrap;text-align:left}
-  th{padding:2px 12px;white-space:nowrap;text-align:left;font-size:10px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:#888;border-bottom:2px solid #111;background:#fff}
-  td.num{text-align:right}
-  tbody tr:nth-child(odd) td{background:#fff}
-  tbody tr:nth-child(even) td{background:#ececec}
-  td.tag{color:#8a6d00;font-weight:700}
-  a{color:#0a7d63;font-weight:700;text-decoration:none}a:hover{text-decoration:underline}
+  #out.board{background:#0e0f11;border-radius:12px;padding:16px 12px;color:#f4f3ea;
+             box-shadow:inset 0 0 70px rgba(0,0,0,.65)}
+  #out table{border-collapse:separate;border-spacing:0;margin:0 auto}
+  #out th,#out td{padding:3px 5px;white-space:nowrap;text-align:left;background:none;border:0}
+  #out thead th{padding-bottom:9px}
+  #out td.num{text-align:right}
+  #out a.flaplink{text-decoration:none;display:inline-block}
+  #out a.flaplink:hover .flap{background:#34373d}
+  .flap{display:inline-block;position:relative;min-width:1.08ch;padding:3px 2px;margin:1px;
+        border-radius:2px;text-align:center;
+        font:600 13px/1.2 "Cascadia Code",Consolas,"Courier New",monospace;
+        color:#f4f3ea;background:#26282c;
+        box-shadow:inset 0 0 0 1px #000,0 1px 1px rgba(0,0,0,.55)}
+  .flap::after{content:"";position:absolute;left:2px;right:2px;top:50%;height:1px;
+        background:rgba(0,0,0,.5)}
+  .flap.is-blank{background:#171819;box-shadow:inset 0 0 0 1px #000}
+  .flap.is-hd{font-size:10px;letter-spacing:.03em;color:#e7b23c;background:#211d15}
+  .flap.flip{animation:flapflip .17s cubic-bezier(.3,.9,.3,1)}
+  @keyframes flapflip{
+    0%{transform:perspective(150px) rotateX(-82deg);filter:brightness(2)}
+    60%{filter:brightness(1.15)}
+    100%{transform:none;filter:none}}
+  @media (prefers-reduced-motion:reduce){.flap.flip{animation:none}}
   .err{color:#b00020}
 </style>
 </head>
@@ -244,6 +263,7 @@ function esc(s) {
 }
 function render(j) {
   if (!j.rows || !j.rows.length) {
+    out.className = "";
     out.innerHTML = "<p>Ничего не найдено под эти фильтры. Ослабь «макс. пересадок» / «макс. стыковки» или смени месяц.</p>";
     return;
   }
@@ -255,15 +275,85 @@ function render(j) {
     html += "<tr>";
     for (const col of j.columns) {
       const v = row[col];
-      if (col === "link" && v) html += '<td><a href="' + esc(v) + '" target="_blank" rel="noopener">open</a></td>';
-      else if (col === "rec") html += '<td class="tag">' + esc(v) + "</td>";
+      if (col === "link" && v) html += '<td><a class="flaplink" href="' + esc(v) + '" target="_blank" rel="noopener">open</a></td>';
       else if (isNum(v)) html += '<td class="num">' + esc(v) + "</td>";
       else html += "<td>" + esc(v ?? "") + "</td>";
     }
     html += "</tr>";
   }
   html += "</tbody></table>";
+  out.className = "board";
   out.innerHTML = html;
+  boardReveal(out);
+}
+
+/* split-flap ("перекидное табло") reveal: every glyph is a flap tile that
+   riffles through characters before locking in, staggered row by row. */
+const REDUCE = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const FLAP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЩЭЮЯ .:-/";
+
+function boardReveal(root) {
+  const cells = [...root.querySelectorAll("th, td")];
+  if (!cells.length) return;
+
+  const plan = cells.map((cell) => {
+    const tr = cell.parentElement;
+    const hd = tr.parentElement.tagName === "THEAD";
+    const rowIx = hd ? 0 : tr.sectionRowIndex + 1;
+    const link = cell.querySelector("a");
+    const host = link || cell;
+    const text = hd ? host.textContent.toUpperCase() : host.textContent;
+
+    const items = [];
+    const frag = document.createDocumentFragment();
+    for (const ch of text) {
+      const blank = ch === " ";
+      const sp = document.createElement("span");
+      sp.className = "flap" + (blank ? " is-blank" : "") + (hd ? " is-hd" : "");
+      sp.textContent = " ";
+      frag.appendChild(sp);
+      items.push({ sp, ch, blank, set: false });
+    }
+    host.textContent = "";
+    host.appendChild(frag);
+
+    const start = rowIx * 42 + cell.cellIndex * 24 + Math.random() * 26;
+    const dur = 260 + items.length * 24 + Math.random() * 120;
+    return { items, start, dur, done: false };
+  });
+
+  if (REDUCE) {
+    for (const p of plan) for (const it of p.items) it.sp.textContent = it.blank ? " " : it.ch;
+    return;
+  }
+
+  const t0 = performance.now();
+  function frame() {
+    const t = performance.now() - t0;
+    let busy = false;
+    for (const p of plan) {
+      if (p.done) continue;
+      const local = t - p.start;
+      if (local < 0) { busy = true; continue; }
+      const n = p.items.length, per = p.dur / (n + 4);
+      let locked = true;
+      for (let i = 0; i < n; i++) {
+        const it = p.items[i];
+        if (it.blank || it.set) continue;
+        if (local >= per * (i + 3)) {
+          it.set = true;
+          it.sp.textContent = it.ch;
+          it.sp.classList.add("flip");
+        } else {
+          it.sp.textContent = FLAP_ALPHABET[(Math.random() * FLAP_ALPHABET.length) | 0];
+          locked = false;
+        }
+      }
+      if (locked) p.done = true; else busy = true;
+    }
+    if (busy) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 }
 </script>
 </body>
