@@ -59,7 +59,7 @@ const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods
 export async function onRequest(context) {
   const { request, env } = context;
   if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
-  if (!env.TRAVELPAYOUTS_TOKEN) return json({ error: "TRAVELPAYOUTS_TOKEN env var not set in Cloudflare Pages" }, 500);
+  if (!env.TRAVELPAYOUTS_TOKEN) return json({ error: "TRAVELPAYOUTS_TOKEN is not set: add it as a Secret in the Worker (Settings -> Variables and Secrets) and redeploy" }, 500);
   try {
     const q = parseQuery(new URL(request.url).searchParams);
     return json(await search(q, env.TRAVELPAYOUTS_TOKEN));
