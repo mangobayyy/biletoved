@@ -264,16 +264,14 @@ async function search(q, token) {
     }
   }
 
-  const fmtDate = (d, stops) => d ? `${ddmmyyyy(d)} (${WD[d.getUTCDay()]})${stops != null ? ` (${stops})` : ""}` : "";
+  const fmtDate = (d, stops) => d ? `${ddmmyyyy(d)} (${WD[d.getUTCDay()]})${stops != null ? ` [${stops}]` : ""}` : "";
   const outRows = f.map((r) => {
     const o = {
-      rec: r.rec || "",
       depart: fmtDate(r.depDate, r.stopsOut),
       familyTotal: r.familyTotal,
       currency: q.currency.toUpperCase(),
       airline: r.airlineName,
       depOut: r.depOut,
-      flightH: hm(r.flightMin),
       totalH: r.totalH,
       link: r.link,
     };
@@ -291,11 +289,11 @@ async function search(q, token) {
     query: q,
     meta: { daysScanned: days.length, daysWithData, itineraries: rows.length, shown: outRows.length },
     columns: q.oneway
-      ? ["rec", "depart", "familyTotal", "airline", "depOut", "flightH", "layover", "totalH", "link"]
-      : ["rec", "depart", "return", "familyTotal", "airline", "depOut", "depBack", "flightH", "layover", "totalH", "link"],
+      ? ["depart", "familyTotal", "airline", "depOut", "layover", "totalH", "link"]
+      : ["depart", "return", "familyTotal", "airline", "depOut", "depBack", "layover", "totalH", "link"],
     headers: q.oneway
-      ? ["Метка", "Вылет", `Цена, ${q.currency.toUpperCase()}`, "Авиакомпания", "Время туда", "Налёт", "Стыковки", "В пути, ч", "Ссылка"]
-      : ["Метка", "Вылет", "Обратно", `Цена, ${q.currency.toUpperCase()}`, "Авиакомпания", "Время туда", "Время обр.", "Налёт", "Стыковки т/о", "В пути, ч", "Ссылка"],
+      ? ["Вылет", `Цена, ${q.currency.toUpperCase()}`, "Авиакомпания", "Время туда", "Стыковки", "В пути, ч", "Ссылка"]
+      : ["Вылет", "Обратно", `Цена, ${q.currency.toUpperCase()}`, "Авиакомпания", "Время туда", "Время обр.", "Стыковки т/о", "В пути, ч", "Ссылка"],
     rows: outRows,
   };
 }
