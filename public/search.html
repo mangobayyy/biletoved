@@ -244,12 +244,15 @@ function esc(s) {
   return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 function render(j) {
+  const m = j.meta || {};
+  meta.textContent = `Дней с ценами: ${m.daysWithData || 0}/${m.daysScanned || 0} · всего вариантов: ${m.itineraries || 0} · показано: ${m.shown || 0}`;
   if (!j.rows || !j.rows.length) {
-    out.innerHTML = "<p>Ничего не найдено под эти фильтры. Ослабь «макс. пересадок» / «макс. стыковки» или смени месяц.</p>";
+    const why = !m.daysWithData
+      ? "Travelpayouts не отдал ни одной цены по этому маршруту на выбранный месяц. Обычно так с редкими направлениями и с билетами «в одну сторону» — попробуй сам месяц позже/раньше, конкретный аэропорт вместо города (напр. JFK вместо NYC) или сними галочку «в одну сторону»."
+      : "Цены нашлись, но под фильтры ничего не подошло. Открой блок «Фильтры» и увеличь «макс. пересадок» / «макс. стыковки», либо смени месяц.";
+    out.innerHTML = "<p>" + esc(why) + "</p>";
     return;
   }
-  const m = j.meta || {};
-  meta.textContent = `Дней с ценами: ${m.daysWithData}/${m.daysScanned} · всего вариантов: ${m.itineraries} · показано: ${m.shown}`;
   const isNum = (v) => typeof v === "number" || (/^-?\d+([.,]\d+)?$/.test(String(v)) && v !== "");
   let html = "<table><thead><tr>" + j.headers.map((h) => "<th>" + esc(h) + "</th>").join("") + "</tr></thead><tbody>";
   for (const row of j.rows) {
