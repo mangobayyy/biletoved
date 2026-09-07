@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Поиск выгодных перелётов — Билетовед</title>
+<meta name="robots" content="noindex">
+<style>
+  :root{ --fg:#111; --muted:#666; --line:#ddd; --accent:#0a7d63; }
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--fg);
+       font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:18px}
+  h1{font-size:18px;margin:0 0 4px}
+  p.sub{color:var(--muted);margin:0 0 18px}
+  form{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;
+       border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+  label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  input,select{font:inherit;padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--fg)}
+  .row-check{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:16px;align-items:center;font-size:13px}
+  .row-check label{flex-direction:row;align-items:center;gap:6px;color:var(--fg);font-size:13px}
+  .actions{grid-column:1/-1;display:flex;gap:12px;align-items:center}
+  button{font:inherit;font-weight:700;padding:9px 20px;border:0;border-radius:8px;background:#111;color:#fff;cursor:pointer}
+  button:disabled{opacity:.5;cursor:default}
+  details{grid-column:1/-1}
+  summary{cursor:pointer;color:var(--accent);font-size:13px}
+  .adv{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:10px}
+  #status{font-size:13px;color:var(--muted);min-height:18px}
+  #meta{font-size:12px;color:var(--muted);margin:10px 0 6px}
+  /* results table: white / black zebra, monospace, matches the file report */
+  #out{overflow-x:auto}
+  table{border-collapse:collapse;font:13px/1.6 "Cascadia Code",Consolas,"Courier New",monospace}
+  td{padding:3px 12px;white-space:nowrap;text-align:left}
+  th{padding:2px 12px;white-space:nowrap;text-align:left;font-size:10px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:#888;border-bottom:2px solid #111;background:#fff}
+  td.num{text-align:right}
+  tbody tr:nth-child(odd) td{background:#fff}
+  tbody tr:nth-child(even) td{background:#ececec}
+  td.tag{color:#8a6d00;font-weight:700}
+  a{color:#0a7d63;font-weight:700;text-decoration:none}a:hover{text-decoration:underline}
+  .err{color:#b00020}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="margin:0 0 10px"><a href="./" style="color:var(--muted)">&larr; Билетовед</a></p>
+  <h1>Поиск выгодных перелётов</h1>
+  <p class="sub">Скан всего месяца по дням вылета. На каждую дату — самый дешёвый вариант.</p>
+
+  <form id="f">
+    <label>Откуда (IATA)<input name="from" value="MOW" maxlength="3" required></label>
+    <label>Куда (IATA)<input name="to" placeholder="DPS" maxlength="3" required></label>
+    <label>Месяц<input name="month" type="month" required></label>
+    <label>По месяц (необяз.)<input name="through" type="month"></label>
+    <label>Ночей<input name="nights" type="number" min="1" max="60" value="14"></label>
+    <label>Валюта
+      <select name="currency"><option>usd</option><option>eur</option><option>rub</option></select>
+    </label>
+    <label>Взрослых<input name="adults" type="number" min="1" max="9" value="2"></label>
+    <label>Детей (2–11)<input name="children" type="number" min="0" max="9" value="0"></label>
+    <label>Младенцев (&lt;2)<input name="infants" type="number" min="0" max="9" value="0"></label>
+
+    <div class="row-check">
+      <label><input type="checkbox" name="oneway" value="1"> в одну сторону</label>
+      <label><input type="checkbox" name="direct" value="1"> только прямые</label>
+      <label><input type="checkbox" name="all" value="1"> все варианты (не по одному на дату)</label>
+    </div>
+
+    <details>
+      <summary>Фильтры</summary>
+      <div class="adv">
+        <label>Макс. пересадок в каждую сторону
+          <select name="maxStops"><option value="0">0 (прямой)</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option></select>
+        </label>
+        <label>Макс. стыковки, ч
+          <select name="maxLayoverH"><option>3</option><option selected>5</option><option>8</option><option>12</option><option>24</option></select>
+        </label>
+        <label>Показать дат/строк
+          <input name="top" type="number" min="1" max="60" value="20">
+        </label>
+      </div>
+    </details>
+
+    <div class="actions">
+      <button id="go" type="submit">Искать</button>
+      <span id="status"></span>
+    </div>
+  </form>
+
+  <div id="meta"></div>
+  <div id="out"></div>
+</div>
+
+<script>
+/* Бэкенд — Cloudflare Pages Function на том же домене (/search).
+   Оставь пустым, если сайт и функция на одном хосте (Cloudflare Pages).
+   Если функция на другом домене — впиши сюда её адрес. */
+const WORKER_URL = "";
+
+const f = document.getElementById("f");
+const out = document.getElementById("out");
+const meta = document.getElementById("meta");
+const statusEl = document.getElementById("status");
+const goBtn = document.getElementById("go");
+
+// default month = next month
+(function () {
+  const d = new Date(); d.setMonth(d.getMonth() + 1);
+  f.month.value = d.toISOString().slice(0, 7);
+})();
+f.oneway.addEventListener("change", () => { f.nights.disabled = f.oneway.checked; });
+
+f.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(f);
+  const p = new URLSearchParams();
+  for (const [k, v] of fd.entries()) if (v !== "" && v != null) p.set(k, v);
+  ["oneway", "direct", "all"].forEach((k) => { if (!fd.get(k)) p.delete(k); });
+
+  goBtn.disabled = true;
+  out.innerHTML = "";
+  meta.textContent = "";
+  statusEl.textContent = "Идёт поиск… (скан месяца, 5–15 сек)";
+  const t0 = Date.now();
+  try {
+    const r = await fetch(WORKER_URL.replace(/\/+$/, "") + "/search?" + p.toString());
+    const j = await r.json();
+    if (!r.ok || j.error) throw new Error(j.error || ("HTTP " + r.status));
+    render(j);
+    statusEl.textContent = `Готово за ${((Date.now() - t0) / 1000).toFixed(1)} с`;
+  } catch (err) {
+    statusEl.innerHTML = '<span class="err">Ошибка: ' + esc(String(err.message || err)) + "</span>";
+  } finally {
+    goBtn.disabled = false;
+  }
+});
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function render(j) {
+  if (!j.rows || !j.rows.length) {
+    out.innerHTML = "<p>Ничего не найдено под эти фильтры. Ослабь «макс. пересадок» / «макс. стыковки» или смени месяц.</p>";
+    return;
+  }
+  const m = j.meta || {};
+  meta.textContent = `Дней с ценами: ${m.daysWithData}/${m.daysScanned} · всего вариантов: ${m.itineraries} · показано: ${m.shown}`;
+  const isNum = (v) => typeof v === "number" || (/^-?\d+([.,]\d+)?$/.test(String(v)) && v !== "");
+  let html = "<table><thead><tr>" + j.headers.map((h) => "<th>" + esc(h) + "</th>").join("") + "</tr></thead><tbody>";
+  for (const row of j.rows) {
+    html += "<tr>";
+    for (const col of j.columns) {
+      const v = row[col];
+      if (col === "link" && v) html += '<td><a href="' + esc(v) + '" target="_blank" rel="noopener">open</a></td>';
+      else if (col === "rec") html += '<td class="tag">' + esc(v) + "</td>";
+      else if (isNum(v)) html += '<td class="num">' + esc(v) + "</td>";
+      else html += "<td>" + esc(v ?? "") + "</td>";
+    }
+    html += "</tr>";
+  }
+  html += "</tbody></table>";
+  out.innerHTML = html;
+}
+</script>
+</body>
+</html>
