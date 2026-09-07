@@ -118,6 +118,7 @@ const iso = (d) => d.toISOString().slice(0, 10);
 const ddmm = (d) => String(d.getUTCDate()).padStart(2, "0") + String(d.getUTCMonth() + 1).padStart(2, "0");
 const ddmmyyyy = (d) => `${String(d.getUTCDate()).padStart(2, "0")}.${String(d.getUTCMonth() + 1).padStart(2, "0")}.${d.getUTCFullYear()}`;
 const hm = (min) => { min = Math.max(0, Math.round(min)); return `${Math.floor(min / 60)}h${String(min % 60).padStart(2, "0")}`; };
+const hmRu = (min) => { min = Math.max(0, Math.round(min)); const h = Math.floor(min / 60), m = min % 60; return m ? `${h} ч ${m} мин` : `${h} ч`; };
 
 function paxCode(a, c, i) {
   let s = String(Math.max(1, Math.min(a, 9)));
@@ -272,7 +273,7 @@ async function search(q, token) {
       currency: q.currency.toUpperCase(),
       airline: r.airlineName,
       depOut: r.depOut,
-      totalH: r.totalH,
+      totalH: hmRu(r.totalMin),
       link: r.link,
     };
     if (!q.oneway) {
@@ -292,8 +293,8 @@ async function search(q, token) {
       ? ["depart", "familyTotal", "airline", "depOut", "layover", "totalH", "link"]
       : ["depart", "return", "familyTotal", "airline", "depOut", "depBack", "layover", "totalH", "link"],
     headers: q.oneway
-      ? ["Вылет", `Цена, ${q.currency.toUpperCase()}`, "Авиакомпания", "Время туда", "Стыковки", "В пути, ч", "Ссылка"]
-      : ["Вылет", "Обратно", `Цена, ${q.currency.toUpperCase()}`, "Авиакомпания", "Время туда", "Время обр.", "Стыковки т/о", "В пути, ч", "Ссылка"],
+      ? ["Вылет", `Цена, ${q.currency.toUpperCase()}`, "Авиакомпания", "Время туда", "Стыковки", "В пути", "Ссылка"]
+      : ["Вылет", "Обратно", `Цена, ${q.currency.toUpperCase()}`, "Авиакомпания", "Время туда", "Время обр.", "Стыковки т/о", "В пути", "Ссылка"],
     rows: outRows,
   };
 }
