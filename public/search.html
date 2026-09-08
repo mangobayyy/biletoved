@@ -95,13 +95,13 @@
       <summary>Фильтры</summary>
       <div class="adv">
         <label>Макс. пересадок в каждую сторону
-          <select name="maxStops"><option value="0">0 (прямой)</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option></select>
+          <select name="maxStops"><option value="" selected>любое</option><option value="0">0 (прямой)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>
         </label>
-        <label>Макс. стыковки, ч
-          <select name="maxLayoverH"><option>3</option><option selected>5</option><option>8</option><option>12</option><option>24</option></select>
+        <label>Макс. стыковка, ч
+          <select name="maxLayoverH"><option value="" selected>любая</option><option>3</option><option>5</option><option>8</option><option>12</option><option>24</option></select>
         </label>
         <label>Показать дат/строк
-          <input name="top" type="number" min="1" max="60" value="20">
+          <input name="top" type="number" min="1" max="62" value="45">
         </label>
       </div>
     </details>
@@ -249,7 +249,7 @@ function render(j) {
   if (!j.rows || !j.rows.length) {
     const why = !m.daysWithData
       ? "Travelpayouts не отдал ни одной цены по этому маршруту на выбранный месяц. Обычно так с редкими направлениями и с билетами «в одну сторону» — попробуй сам месяц позже/раньше, конкретный аэропорт вместо города (напр. JFK вместо NYC) или сними галочку «в одну сторону»."
-      : "Цены нашлись, но под фильтры ничего не подошло. Открой блок «Фильтры» и увеличь «макс. пересадок» / «макс. стыковки», либо смени месяц.";
+      : "Цены нашлись, но под заданные фильтры ничего не подошло. В блоке «Фильтры» верни «макс. пересадок» / «макс. стыковка» на «любое», сними «только прямые» или смени месяц.";
     out.innerHTML = "<p>" + esc(why) + "</p>";
     return;
   }

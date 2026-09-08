@@ -91,9 +91,11 @@ function parseQuery(p) {
   const children = clampInt(p.get("children"), 0, 9, 0);
   const infants = clampInt(p.get("infants"), 0, 9, 0);
   const currency = (p.get("currency") || "rub").toLowerCase();
-  const maxStops = clampInt(p.get("maxStops"), 0, 3, 1);
-  const maxLayoverH = clampInt(p.get("maxLayoverH"), 1, 48, 5);
-  const top = clampInt(p.get("top"), 1, 60, 20);
+  // stops / layover are opt-in: no cap unless the user picks one, so the
+  // per-date row is the genuinely cheapest ticket for that stay window
+  const maxStops = p.get("maxStops") ? clampInt(p.get("maxStops"), 0, 3, 3) : Infinity;
+  const maxLayoverH = p.get("maxLayoverH") ? clampInt(p.get("maxLayoverH"), 1, 48, 24) : Infinity;
+  const top = clampInt(p.get("top"), 1, 62, 45);
   const all = p.get("all") === "1";
   const direct = p.get("direct") === "1";
   return { from, to, month, through, oneway, nights, adults, children, infants, currency, maxStops, maxLayoverH, top, all, direct };
@@ -245,12 +247,15 @@ async function search(q, token) {
     (r.stopsBack == null || r.stopsBack <= q.maxStops) &&
     r.layMin <= q.maxLayoverH * 60
   );
+  // cheapest first, so the per-date pick below is that date's cheapest ticket
   f.sort((a, b) => a.familyTotal - b.familyTotal || a.totalMin - b.totalMin);
   if (!q.all) {
     const seen = new Set();
     f = f.filter((r) => (seen.has(r.depIso) ? false : (seen.add(r.depIso), true)));
   }
   f = f.slice(0, q.top);
+  // display order: by departure date (calendar), cheapest wins ties
+  f.sort((a, b) => (a.depIso < b.depIso ? -1 : a.depIso > b.depIso ? 1 : a.familyTotal - b.familyTotal));
 
   if (f.length) {
     const keyOf = (r) => `${r.depIso}|${r.retIso}|${r.airline}|${r.farePP}|${r.depOut}|${r.totalH}`;
