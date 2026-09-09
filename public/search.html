@@ -95,10 +95,10 @@
       <summary>Фильтры</summary>
       <div class="adv">
         <label>Макс. пересадок в каждую сторону
-          <select name="maxStops"><option value="" selected>любое</option><option value="0">0 (прямой)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>
+          <select name="maxStops"><option value="0">0 (прямой)</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="">любое</option></select>
         </label>
         <label>Макс. стыковка, ч
-          <select name="maxLayoverH"><option value="" selected>любая</option><option>3</option><option>5</option><option>8</option><option>12</option><option>24</option></select>
+          <select name="maxLayoverH"><option>3</option><option selected>5</option><option>8</option><option>12</option><option>24</option><option value="">любая</option></select>
         </label>
         <label>Показать дат/строк
           <input name="top" type="number" min="1" max="62" value="45">
@@ -221,6 +221,9 @@ f.addEventListener("submit", async (e) => {
   const p = new URLSearchParams();
   for (const [k, v] of fd.entries()) if (v !== "" && v != null) p.set(k, v);
   ["oneway", "direct", "all"].forEach((k) => { if (!fd.get(k)) p.delete(k); });
+  // keep maxStops / maxLayoverH even when set to "любое" (empty) so the
+  // backend can tell "no cap" apart from "use default"
+  ["maxStops", "maxLayoverH"].forEach((k) => { if (fd.has(k)) p.set(k, fd.get(k)); });
 
   goBtn.disabled = true;
   out.innerHTML = "";

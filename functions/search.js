@@ -91,10 +91,10 @@ function parseQuery(p) {
   const children = clampInt(p.get("children"), 0, 9, 0);
   const infants = clampInt(p.get("infants"), 0, 9, 0);
   const currency = (p.get("currency") || "rub").toLowerCase();
-  // stops / layover are opt-in: no cap unless the user picks one, so the
-  // per-date row is the genuinely cheapest ticket for that stay window
-  const maxStops = p.get("maxStops") ? clampInt(p.get("maxStops"), 0, 3, 3) : Infinity;
-  const maxLayoverH = p.get("maxLayoverH") ? clampInt(p.get("maxLayoverH"), 1, 48, 24) : Infinity;
+  // default caps: <=1 stop each way, <=5h total layover. Empty value ("любое")
+  // means no cap; absent param falls back to the defaults.
+  const maxStops = !p.has("maxStops") ? 1 : (p.get("maxStops") === "" ? Infinity : clampInt(p.get("maxStops"), 0, 3, 1));
+  const maxLayoverH = !p.has("maxLayoverH") ? 5 : (p.get("maxLayoverH") === "" ? Infinity : clampInt(p.get("maxLayoverH"), 1, 48, 5));
   const top = clampInt(p.get("top"), 1, 62, 45);
   const all = p.get("all") === "1";
   const direct = p.get("direct") === "1";
