@@ -38,6 +38,7 @@ const HELP = [
   "Понимаю: город вылета («из …»), город назначения, месяц или диапазон",
   "(«в декабре», «с декабря по февраль», «2026-12»), длительность («на 21 ночь»,",
   "«на 3 недели»), пассажиров, «в одну сторону», «только прямые», валюту.",
+  "Слово «семья» = 2 взрослых + 1 ребёнок + 1 младенец.",
   "Чего не сказали — подставлю по умолчанию (из Москвы, 2 взрослых, 14 ночей)",
   "и покажу это в подтверждении.",
   "",
@@ -315,7 +316,16 @@ function parseNaturalQuery(text) {
   if (children == null && /(^|[^а-я])с\s+ребенком(?![а-я])/.test(t)) children = 1;
   if (children == null && /(^|[^а-я])с\s+детьми(?![а-я])/.test(t)) children = 2;
   if (infants == null && /(^|[^а-я])с\s+младенцем(?![а-я])/.test(t)) infants = 1;
-  if (!adults || isNaN(adults)) { adults = 2; assumptions.push("взрослых не указано — 2"); }
+  // «семья» / «всей семьёй» = 2 взрослых + 1 ребёнок + 1 младенец (состав семьи владельца)
+  if (/(?:^|[^а-я])семь[еяию](?![а-я])/.test(t)) {
+    if (!adults || isNaN(adults)) adults = 2;
+    if (children == null) children = 1;
+    if (infants == null) infants = 1;
+    assumptions.push("«семья» → 2 взр. + 1 реб. + 1 млад.");
+  } else if (!adults || isNaN(adults)) {
+    adults = 2;
+    assumptions.push("взрослых не указано — 2");
+  }
   p.set("adults", String(clamp(adults, 1, 9)));
   if (children) p.set("children", String(clamp(children, 0, 9)));
   if (infants) p.set("infants", String(clamp(infants, 0, 9)));
