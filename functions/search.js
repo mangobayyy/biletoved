@@ -76,7 +76,7 @@ function json(obj, status = 200) {
   });
 }
 
-function parseQuery(p) {
+export function parseQuery(p) {
   const from = (p.get("from") || "MOW").toUpperCase();
   const to = (p.get("to") || "").toUpperCase();
   if (!/^[A-Z]{3}$/.test(to)) throw new Error("bad 'to' (need IATA code)");
@@ -184,7 +184,7 @@ async function fetchDay(q, token, dep) {
   return { dep, ret, data };
 }
 
-async function search(q, token) {
+export async function search(q, token) {
   const days = monthDays(q.month, q.through);
   if (!days.length) throw new Error("no future days in that month");
   if (days.length > 46) throw new Error("date range too wide (" + days.length + " days); search one month at a time");
