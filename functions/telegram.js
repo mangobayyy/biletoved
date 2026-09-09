@@ -317,7 +317,7 @@ function parseNaturalQuery(text) {
   if (children == null && /(^|[^а-я])с\s+детьми(?![а-я])/.test(t)) children = 2;
   if (infants == null && /(^|[^а-я])с\s+младенцем(?![а-я])/.test(t)) infants = 1;
   // «семья» / «всей семьёй» = 2 взрослых + 1 ребёнок + 1 младенец (состав семьи владельца)
-  if (/(?:^|[^а-я])семь[еяию](?![а-я])/.test(t)) {
+  if (/(?:^|[^а-я])семь[еяию]/.test(t)) {
     if (!adults || isNaN(adults)) adults = 2;
     if (children == null) children = 1;
     if (infants == null) infants = 1;
