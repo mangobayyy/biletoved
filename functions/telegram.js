@@ -24,7 +24,7 @@
 
 import { parseQuery, search } from "./search.js";
 
-const MAX_ROWS = 12;
+const DETAIL_ROWS = 10; // столько дат — подробной карточкой, остальные — краткой строкой
 
 const HELP = [
   "✈️ <b>Билетовед</b> — ищу самую выгодную поездку, сканируя весь месяц по дням вылета.",
@@ -155,12 +155,18 @@ export async function handleTelegram(request, env, ctx) {
   // Отладка разбора фразы без отправки в Telegram:
   //   GET /tg?q=найди в декабре билеты из москвы на бали 2 взрослых 1 ребенок
   if (request.method === "GET") {
-    const q = new URL(request.url).searchParams.get("q");
+    const sp = new URL(request.url).searchParams;
+    const q = sp.get("q");
     if (!q) return new Response("ok");
     try {
       const isCommand = /^\/search\b/i.test(q) || /^[A-Za-z]{3}\s+\S/.test(q);
       const { params, assumptions } = isCommand ? parseBotQuery(q) : parseNaturalQuery(q);
-      return json({ query: q, understood: describeQuery(params), assumptions, params: Object.fromEntries(params) });
+      const info = { query: q, understood: describeQuery(params), assumptions, params: Object.fromEntries(params) };
+      if (sp.get("run") === "1" && env.TRAVELPAYOUTS_TOKEN) {
+        const res = await search(parseQuery(params), env.TRAVELPAYOUTS_TOKEN);
+        info.messages = formatResults(res);
+      }
+      return json(info);
     } catch (e) {
       return json({ query: q, error: String(e.message || e) }, 400);
     }
@@ -453,7 +459,7 @@ function formatResults(res) {
     `\nПассажиров: ${res.query.adults}+${res.query.children}+${res.query.infants} · ` +
     `цена — за всю семью · дат найдено: ${rows.length}`;
 
-  const lines = rows.slice(0, MAX_ROWS).map((r) => {
+  const card = (r) => {
     const tag = r.familyTotal === cheapest ? "💰 " : "";
     const when = res.query.oneway ? `<b>${esc(r.depart)}</b>` : `<b>${esc(r.depart)}</b> → ${esc(r.return)}`;
     const times = res.query.oneway
@@ -465,17 +471,41 @@ function formatResults(res) {
       `${times} · стык. ${esc(r.layover)} · в пути ${esc(r.totalH)}\n` +
       `<a href="${esc(r.link)}">Открыть на Aviasales</a>`
     );
-  });
+  };
+  const brief = (r) => {
+    const tag = r.familyTotal === cheapest ? "💰 " : "";
+    const when = res.query.oneway ? esc(r.depart) : `${esc(r.depart)} → ${esc(r.return)}`;
+    return `${tag}${when} · <b>${money(r.familyTotal)} ${sym}</b> · ${esc(r.airline)} · <a href="${esc(r.link)}">рейс</a>`;
+  };
 
+  // все даты попадают в чат: первые DETAIL_ROWS — карточкой, остальные —
+  // одной строкой, каждая со своей ссылкой. Разбиваем на сообщения <=3800.
+  const rest = rows.slice(DETAIL_ROWS);
+  const msgs = pack([head, ...rows.slice(0, DETAIL_ROWS).map(card)], "\n\n");
+  if (rest.length) {
+    const title = `<b>Ещё ${rest.length} ${plural(rest.length, "дата", "даты", "дат")} — коротко (дата · цена · рейс):</b>`;
+    msgs.push(...pack([title, ...rest.map(brief)], "\n"));
+  }
+  return msgs;
+}
+
+function pack(items, sep, limit = 3800) {
   const out = [];
-  let buf = head;
-  for (const l of lines) {
-    if ((buf + "\n\n" + l).length > 3500) { out.push(buf); buf = l; }
-    else buf += "\n\n" + l;
+  let buf = "";
+  for (const it of items) {
+    const next = buf ? buf + sep + it : it;
+    if (next.length > limit && buf) { out.push(buf); buf = it; }
+    else buf = next;
   }
   if (buf) out.push(buf);
-  if (rows.length > MAX_ROWS) out[out.length - 1] += `\n\n…и ещё ${rows.length - MAX_ROWS} дат.`;
   return out;
+}
+
+function plural(n, one, few, many) {
+  const d10 = n % 10, d100 = n % 100;
+  if (d10 === 1 && d100 !== 11) return one;
+  if (d10 >= 2 && d10 <= 4 && (d100 < 10 || d100 >= 20)) return few;
+  return many;
 }
 
 function json(obj, status = 200) {
