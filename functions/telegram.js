@@ -46,6 +46,9 @@ const HELP = [
   "<code>/search КУДА МЕСЯЦ НОЧЕЙ [ключ=значение]</code>",
   "<code>/search DPS 2026-11 21 from=LED adults=2 children=1 infants=1</code>",
   "ключи: <code>from adults children infants oneway direct maxstops maxlayover currency through top</code>",
+  "",
+  "/clear — удалить все сообщения в этом чате (Telegram даёт боту удалять",
+  "только сообщения моложе 48 часов; более старые — «Очистить историю» в меню чата).",
 ].join("\n");
 
 const SYM = { rub: "₽", usd: "$", eur: "€", kzt: "₸", try: "₺", thb: "฿", gbp: "£", aed: "AED" };
@@ -190,6 +193,11 @@ export async function handleTelegram(request, env, ctx) {
 
   if (/^\/(start|help)\b/i.test(text) || /^\/search(@\w+)?$/i.test(text)) {
     ctx.waitUntil(tgSend(env, chatId, HELP));
+    return new Response("ok");
+  }
+
+  if (/^\/clear(@\w+)?$/i.test(text)) {
+    ctx.waitUntil(clearChat(env, msg));
     return new Response("ok");
   }
 
@@ -521,7 +529,77 @@ function esc(s) {
   return String(s).replace(/[&<>]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"));
 }
 
+// ---- /clear: удалить все сообщения чата -----------------------------------
+// Список сообщений Bot API не отдаёт, но в личке message_id идут подряд
+// общим счётчиком для обеих сторон — поэтому удаляем id от самой команды
+// вниз до 1 пачками по 100 (deleteMessages молча пропускает несуществующие).
+// Telegram разрешает боту удалять только сообщения моложе 48 часов. Если
+// пачка не прошла, в ней, видимо, есть такое старое: половинным делением
+// удаляем, что ещё можно, и ниже не идём — там всё ещё старше.
+// Не больше CLEAR_CALLS вызовов: у воркера лимит 50 подзапросов на вызов.
+const CLEAR_CALLS = 40;
+
+async function clearChat(env, msg) {
+  const chatId = msg.chat.id;
+  if (msg.chat.type !== "private") {
+    await tgSend(env, chatId, "🧹 /clear работает только в личном чате с ботом.");
+    return;
+  }
+  let calls = 0;
+  const del = async (lo, hi) => {
+    calls++;
+    const ids = [];
+    for (let id = lo; id <= hi; id++) ids.push(id);
+    return (await tgCall(env, "deleteMessages", { chat_id: chatId, message_ids: ids })) === true;
+  };
+
+  let blocked = false;
+  let hi = msg.message_id;
+  for (; hi >= 1 && !blocked && calls < CLEAR_CALLS; hi -= 100) {
+    const lo = Math.max(1, hi - 99);
+    if (await del(lo, hi)) continue;
+    blocked = true;
+    // ищем границу: [a..top] — ещё не удалённый хвост пачки, граница где-то в нём
+    let a = lo, top = hi;
+    while (a <= top && calls < CLEAR_CALLS) {
+      const m = Math.floor((a + top + 1) / 2);
+      if (await del(m, top)) top = m - 1;      // верх удалился — ищем ниже
+      else a = m + 1;                          // в [m..top] есть старое — сужаем
+    }
+  }
+
+  const full = !blocked && hi < 1;            // дошли до самого начала чата
+  const note = blocked
+    ? "🧹 Удалил всё, что Telegram разрешает боту: сообщения старше 48 часов бот удалить не может. " +
+      "Их можно убрать самому: меню чата → «Очистить историю»."
+    : full
+      ? "🧹 Чат очищен."
+      : `🧹 Удалил последние ${CLEAR_CALLS * 100} сообщений — больше за один раз не успеваю. ` +
+        "Остальное: меню чата → «Очистить историю».";
+  const sent = await tgCall(env, "sendMessage", { chat_id: chatId, text: note });
+  if (full && sent && sent.message_id) {
+    await new Promise((r) => setTimeout(r, 5000));
+    await tgCall(env, "deleteMessage", { chat_id: chatId, message_id: sent.message_id });
+  }
+}
+
 // ---- Telegram API ---------------------------------------------------
+
+async function tgCall(env, method, body) {
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (!j.ok) console.log(method, "failed", j.error_code, j.description);
+    return j.ok ? j.result : null;
+  } catch (e) {
+    console.log(method, "error", String(e));
+    return null;
+  }
+}
 
 async function tgSend(env, chatId, textHtml, { preview = true } = {}) {
   const body = {
